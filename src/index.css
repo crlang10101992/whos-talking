@@ -25,6 +25,46 @@ body {
 .app-name span { color: #7C6AF7; }
 .toolbar-actions { display: flex; gap: 10px; }
 
+/* ---- Hamburger (mobile only) ---- */
+.hamburger {
+  display: none;
+  flex-direction: column; justify-content: center; gap: 5px;
+  width: 36px; height: 36px; padding: 6px;
+  background: none; border: none; cursor: pointer;
+}
+.hamburger span {
+  display: block; height: 2px; border-radius: 2px;
+  background: #2D2D2D; transition: all 0.2s;
+}
+
+/* ---- Mobile dropdown menu ---- */
+.mobile-menu {
+  position: fixed; top: 57px; right: 12px; z-index: 200;
+  background: white; border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+  border: 1px solid #EDE8E0;
+  overflow: hidden; min-width: 180px;
+}
+.mobile-menu-item {
+  display: block; width: 100%;
+  padding: 14px 18px; text-align: left;
+  background: none; border: none;
+  font-size: 14px; font-weight: 500; color: #333;
+  cursor: pointer; border-bottom: 1px solid #F3EEE8;
+}
+.mobile-menu-item:last-child { border-bottom: none; }
+.mobile-menu-item:hover { background: #FAF8F5; }
+.mobile-menu-item.active { color: #7C6AF7; }
+.mobile-menu-backdrop {
+  position: fixed; inset: 0; z-index: 199;
+}
+
+@media (max-width: 600px) {
+  .toolbar-desktop { display: none; }
+  .hamburger { display: flex; }
+  .app-name { font-size: 16px; }
+}
+
 /* ---- Buttons ---- */
 .btn {
   padding: 8px 16px; border-radius: 100px;
