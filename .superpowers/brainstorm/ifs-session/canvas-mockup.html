@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Who's Talking?</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Nunito:wght@400;600;700&family=BioRhyme+Expanded:wght@400;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: #F7F4EF; overflow: hidden; height: 100vh; }
+
+.toolbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(255,255,255,0.92); backdrop-filter: blur(8px);
+  border-bottom: 1px solid #E8E2DA;
+  padding: 12px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.app-name { font-family: 'BioRhyme Expanded', serif; font-weight: 700; font-size: 20px; color: #2D2D2D; }
+.app-name span { color: #7C6AF7; }
+.toolbar-actions { display: flex; gap: 10px; }
+.btn { padding: 8px 16px; border-radius: 100px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; }
+.btn-primary { background: #7C6AF7; color: #fff; }
+.btn-primary:hover { background: #6857e0; }
+.btn-ghost { background: transparent; color: #555; border: 1px solid #DDD; }
+.btn-ghost:hover { background: #F0EDE8; }
+
+.canvas {
+  position: fixed; inset: 57px 0 0 0;
+  background: #F7F4EF;
+  background-image: radial-gradient(circle, #D8D2C8 1px, transparent 1px);
+  background-size: 28px 28px;
+  overflow: hidden;
+}
+
+/* Wobble — subtle rotation only; edge morphing handled by SMIL */
+@keyframes wobble1 {
+  0%,100% { transform: rotate(0deg); }
+  30%      { transform: rotate(1.5deg); }
+  70%      { transform: rotate(-1deg); }
+}
+@keyframes wobble2 {
+  0%,100% { transform: rotate(0deg); }
+  25%      { transform: rotate(-2deg); }
+  65%      { transform: rotate(1.2deg); }
+}
+@keyframes wobble3 {
+  0%,100% { transform: rotate(0deg); }
+  40%      { transform: rotate(1deg); }
+  80%      { transform: rotate(-1.5deg); }
+}
+
+.blob-wrapper {
+  position: absolute; cursor: grab;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  user-select: none;
+}
+.blob-wrapper:active { cursor: grabbing; }
+.blob-svg { transform-origin: center center; }
+.blob-wrapper:nth-child(3n+1) .blob-svg { animation: wobble1 4.5s ease-in-out infinite; }
+.blob-wrapper:nth-child(3n+2) .blob-svg { animation: wobble2 5.8s ease-in-out infinite; }
+.blob-wrapper:nth-child(3n)   .blob-svg { animation: wobble3 5.1s ease-in-out infinite; }
+
+.blob-name {
+  font-family: 'Nunito', sans-serif; font-weight: 600; font-size: 13px; color: #333;
+  background: rgba(255,255,255,0.88); padding: 3px 10px; border-radius: 100px;
+  border: 1px solid rgba(0,0,0,0.08); white-space: nowrap;
+  cursor: default; transition: border-color 0.15s;
+}
+.blob-name:hover { border-color: #7C6AF7; }
+.blob-wrapper.selected .blob-name { border-color: #7C6AF7; }
+.blob-wrapper.selected .blob-svg { filter: drop-shadow(0 0 10px rgba(124,106,247,0.5)); }
+.blob-wrapper.connecting-source .blob-svg { filter: drop-shadow(0 0 14px rgba(124,106,247,0.9)); }
+.btn-connect { background: transparent; color: #555; border: 1px solid #DDD; }
+.btn-connect:hover { background: #F0EDE8; }
+.btn-connect.active { background: #7C6AF7; color: white; border-color: #7C6AF7; }
+.canvas.connect-mode { cursor: crosshair; }
+
+/* ---- EDITOR ---- */
+.editor {
+  position: fixed; right: 16px; top: 73px;
+  width: 230px; max-height: calc(100vh - 90px); overflow-y: auto;
+  background: white; border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+  padding: 18px; border: 1px solid #EDE8E0;
+}
+.editor::-webkit-scrollbar { width: 4px; }
+.editor::-webkit-scrollbar-thumb { background: #DDD; border-radius: 4px; }
+.editor-title { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #999; margin-bottom: 14px; }
+.editor-section { margin-bottom: 16px; }
+.editor-label { font-size: 12px; color: #666; margin-bottom: 8px; }
+.color-row { display: flex; gap: 7px; flex-wrap: wrap; }
+.color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s; }
+.color-dot:hover { transform: scale(1.15); }
+.color-dot.active { border-color: #333; }
+.size-row { display: flex; gap: 6px; }
+.size-btn { flex: 1; padding: 6px; border-radius: 8px; border: 1px solid #E0DAD2; background: #FAF8F5; font-size: 12px; color: #555; cursor: pointer; text-align: center; }
+.size-btn.active { background: #7C6AF7; color: white; border-color: #7C6AF7; }
+
+.face-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.face-btn {
+  padding: 8px 4px; border-radius: 10px; border: 1px solid #E0DAD2;
+  background: #FAF8F5; cursor: pointer; text-align: center;
+  font-size: 9px; color: #666; display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.face-btn svg { display: block; }
+.face-btn.active { background: #EEF; border-color: #7C6AF7; }
+
+.name-input {
+  width: 100%; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid #E0DAD2; font-family: 'Nunito', sans-serif;
+  font-size: 13px; color: #333; background: #FAF8F5; outline: none;
+}
+.name-input:focus { border-color: #7C6AF7; }
+
+.desc-input {
+  width: 100%; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid #E0DAD2; font-family: 'Inter', sans-serif;
+  font-size: 12px; color: #444; background: #FAF8F5; outline: none;
+  resize: none; line-height: 1.5; min-height: 80px;
+}
+.desc-input:focus { border-color: #7C6AF7; }
+.desc-input::placeholder { color: #BBB; }
+
+.editor hr { border: none; border-top: 1px solid #F0EAE2; margin: 4px 0 16px; }
+
+.empty { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; pointer-events: none; }
+.empty p { font-size: 15px; color: #AAA; margin-top: 8px; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #2D2D2D; color: white; padding: 10px 20px; border-radius: 100px;
+  font-size: 13px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 200;
+}
+.toast.show { opacity: 1; }
+
+/* Name hover tooltip */
+.name-tooltip {
+  position: fixed;
+  background: rgba(30,26,46,0.93);
+  color: white;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 240px;
+  pointer-events: none;
+  z-index: 300;
+  opacity: 0;
+  transition: opacity 0.15s;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+}
+.name-tooltip.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="app-name">Who's <span>Talking?</span></div>
+  <div class="toolbar-actions">
+    <button class="btn btn-ghost" onclick="shareLink()">Share link</button>
+    <button class="btn btn-connect" id="connectBtn" onclick="toggleConnectMode()">Connect</button>
+    <button class="btn btn-primary" onclick="addBlob()">+ New part</button>
+  </div>
+</div>
+
+<div class="canvas" id="canvas">
+  <!-- Connection lines sit at the bottom of the canvas stack, behind blobs -->
+  <svg id="connections-svg" xmlns="http://www.w3.org/2000/svg"
+    style="position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:0;">
+    <line id="preview-line" x1="0" y1="0" x2="0" y2="0"
+      stroke="#7C6AF7" stroke-width="2" stroke-dasharray="6,5"
+      stroke-linecap="round" opacity="0"/>
+  </svg>
+  <div class="empty" id="empty">
+    <svg width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="#EDE8E0"/><text x="24" y="30" text-anchor="middle" font-size="20">✦</text></svg>
+    <p>Click <strong>+ New part</strong> to meet your first part</p>
+  </div>
+</div>
+
+<div class="editor" id="editor" style="display:none">
+  <div class="editor-title">Edit part</div>
+
+  <div class="editor-section">
+    <div class="editor-label">Name</div>
+    <input class="name-input" id="nameInput" value="" oninput="updateName(this.value)" />
+  </div>
+
+  <hr>
+
+  <div class="editor-section">
+    <div class="editor-label">Color</div>
+    <div class="color-row" id="colorRow"></div>
+  </div>
+
+  <div class="editor-section">
+    <div class="editor-label">Size</div>
+    <div class="size-row">
+      <div class="size-btn" onclick="setSize('sm',this)">Small</div>
+      <div class="size-btn active" onclick="setSize('md',this)">Medium</div>
+      <div class="size-btn" onclick="setSize('lg',this)">Large</div>
+    </div>
+  </div>
+
+  <div class="editor-section">
+    <div class="editor-label">Face</div>
+    <div class="face-grid" id="faceGrid"></div>
+  </div>
+
+  <hr>
+
+  <div class="editor-section">
+    <div class="editor-label">About this part</div>
+    <textarea class="desc-input" id="descInput" placeholder="What does this part do? When does it show up? What does it need?..." oninput="updateDesc(this.value)"></textarea>
+  </div>
+</div>
+
+<!-- Floating label editor for connection lines -->
+<div id="line-editor" style="display:none; position:fixed; z-index:300; background:white; border:1px solid #E0DAD2; border-radius:12px; padding:8px 12px; box-shadow:0 4px 20px rgba(0,0,0,0.12); display:none; align-items:center; gap:8px;">
+  <input id="line-label-input" type="text" placeholder="Add a note…"
+    style="border:none; outline:none; font-size:13px; width:150px; font-family:'Inter',sans-serif; color:#333; background:transparent;"/>
+  <button onclick="deleteSelectedConnection()"
+    style="border:none; background:none; cursor:pointer; color:#BBB; font-size:15px; padding:0; line-height:1;" title="Remove connection">✕</button>
+</div>
+
+<div class="toast" id="toast">Link copied to clipboard</div>
+<div class="name-tooltip" id="nameTooltip"></div>
+
+<script>
+// Each shape has 3 morph variants — more dramatic variation for visibly uneven edges
+const SHAPES_MORPH = [
+  [
+    "M60,10 C85,5 95,30 90,55 C85,80 65,95 40,90 C15,85 5,65 10,40 C15,15 35,15 60,10Z",
+    "M64,6 C90,2 98,28 86,58 C80,86 62,100 35,92 C10,82 2,62 8,38 C12,14 36,20 64,6Z",
+    "M55,14 C82,8 92,34 94,52 C88,76 64,92 45,88 C18,88 8,66 14,40 C18,12 36,12 55,14Z",
+  ],
+  [
+    "M55,8 C80,8 98,28 95,55 C92,82 70,98 45,92 C20,86 4,68 8,42 C12,16 30,8 55,8Z",
+    "M60,4 C86,6 100,24 92,58 C88,84 66,100 40,96 C14,86 2,64 4,40 C8,16 28,4 60,4Z",
+    "M50,12 C76,10 96,32 98,52 C94,80 72,96 50,88 C24,88 6,72 10,44 C14,16 32,12 50,12Z",
+  ],
+  [
+    "M65,12 C88,10 96,35 90,58 C84,81 60,96 38,88 C16,80 6,58 12,36 C18,14 42,14 65,12Z",
+    "M60,16 C84,6 100,30 92,56 C86,82 64,100 34,92 C10,82 2,60 8,38 C14,18 40,20 60,16Z",
+    "M70,8 C92,12 92,40 88,60 C80,82 56,94 42,84 C20,78 10,56 16,32 C20,10 46,10 70,8Z",
+  ],
+  [
+    "M50,8 C76,6 96,26 94,52 C92,78 74,96 48,94 C22,92 4,74 6,48 C8,22 24,10 50,8Z",
+    "M56,4 C82,4 98,24 96,54 C92,82 70,98 44,98 C18,88 2,70 2,46 C4,20 28,6 56,4Z",
+    "M44,12 C70,8 94,28 92,50 C90,76 76,94 52,90 C26,96 8,78 10,50 C12,24 22,14 44,12Z",
+  ],
+  [
+    "M58,6 C84,4 98,24 96,50 C94,76 76,98 50,96 C24,94 2,76 4,50 C6,24 32,8 58,6Z",
+    "M64,2 C90,2 100,22 94,54 C90,80 72,100 46,98 C20,90 2,72 4,48 C6,22 36,6 64,2Z",
+    "M52,10 C78,8 94,28 96,46 C96,72 78,96 54,92 C28,96 4,78 6,52 C8,26 28,12 52,10Z",
+  ],
+];
+const MORPH_DURS = [3.8, 4.6, 3.3, 4.2, 3.7];
+
+const COLORS = ['#7C6AF7','#F7836A','#4BAE8A','#F5C842','#60ADEF','#E879A0','#8BC34A','#FF9F40','#A0522D','#48CAE4'];
+
+// Small cute faces — compact, minimal, centered in blob
+const FACES = [
+  {
+    id:'happy', label:'Happy',
+    draw: () => `
+      <path d="M31,46 Q37,41 43,46" stroke="#1a1a2e" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M57,46 Q63,41 69,46" stroke="#1a1a2e" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M34,59 Q50,70 66,59" stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    `
+  },
+  {
+    id:'simple', label:'Simple',
+    draw: () => `
+      <circle cx="37" cy="46" r="4" fill="#1a1a2e"/>
+      <circle cx="63" cy="46" r="4" fill="#1a1a2e"/>
+      <path d="M38,60 Q50,68 62,60" stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    `
+  },
+  {
+    id:'sad', label:'Sad',
+    draw: () => `
+      <circle cx="37" cy="46" r="4" fill="#1a1a2e"/>
+      <circle cx="63" cy="46" r="4" fill="#1a1a2e"/>
+      <path d="M38,64 Q50,56 62,64" stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    `
+  },
+  {
+    id:'surprised', label:'Surprised',
+    draw: () => `
+      <circle cx="37" cy="45" r="6" fill="#1a1a2e"/>
+      <circle cx="63" cy="45" r="6" fill="#1a1a2e"/>
+      <ellipse cx="50" cy="63" rx="6" ry="7" fill="#1a1a2e"/>
+    `
+  },
+  {
+    id:'laughing', label:'Laughing',
+    draw: () => `
+      <path d="M31,46 Q37,41 43,46" stroke="#1a1a2e" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M57,46 Q63,41 69,46" stroke="#1a1a2e" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M32,58 Q50,74 68,58" stroke="#1a1a2e" stroke-width="2" fill="#1a1a2e"/>
+      <path d="M34,58 Q50,70 66,58" fill="white"/>
+    `
+  },
+  {
+    id:'love', label:'In Love',
+    draw: () => `
+      <path d="M29,42 C29,38 33,37 37,41 C41,37 45,38 45,42 C45,47 37,53 37,53 C37,53 29,47 29,42Z" fill="#E879A0"/>
+      <path d="M55,42 C55,38 59,37 63,41 C67,37 71,38 71,42 C71,47 63,53 63,53 C63,53 55,47 55,42Z" fill="#E879A0"/>
+      <path d="M38,63 Q50,71 62,63" stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    `
+  },
+  {
+    id:'wink', label:'Wink',
+    draw: () => `
+      <circle cx="37" cy="46" r="4" fill="#1a1a2e"/>
+      <path d="M57,46 Q63,41 69,46" stroke="#1a1a2e" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M38,60 Q50,68 62,60" stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    `
+  },
+  {
+    id:'angry', label:'Fierce',
+    draw: () => `
+      <path d="M28,38 L42,43" stroke="#1a1a2e" stroke-width="3" stroke-linecap="round"/>
+      <path d="M72,38 L58,43" stroke="#1a1a2e" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="37" cy="48" r="4" fill="#1a1a2e"/>
+      <circle cx="63" cy="48" r="4" fill="#1a1a2e"/>
+      <path d="M38,63 Q50,56 62,63" stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    `
+  },
+  {
+    id:'nervous', label:'Nervous',
+    draw: () => `
+      <circle cx="37" cy="46" r="4" fill="#1a1a2e"/>
+      <circle cx="63" cy="46" r="4" fill="#1a1a2e"/>
+      <path d="M36,62 Q41,57 46,62 Q50,67 54,62 Q59,57 64,62" stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    `
+  },
+];
+
+const NAMES = ['The Protector','The Critic','The Caregiver','The Exile','The Manager','The Firefighter','The Curious One','The Rebel'];
+
+let blobs = [];
+let selectedId = null;
+let dragState = null;
+let blobCount = 0;
+
+function randInt(min, max) { return Math.floor(Math.random()*(max-min+1))+min; }
+function randItem(arr) { return arr[randInt(0,arr.length-1)]; }
+
+// Build color dots
+const colorRow = document.getElementById('colorRow');
+COLORS.forEach(c => {
+  const d = document.createElement('div');
+  d.className = 'color-dot';
+  d.style.background = c;
+  d.setAttribute('data-color', c);
+  d.onclick = () => setColor(c, d);
+  colorRow.appendChild(d);
+});
+
+// Build face buttons
+const faceGrid = document.getElementById('faceGrid');
+FACES.forEach(f => {
+  const btn = document.createElement('div');
+  btn.className = 'face-btn';
+  btn.setAttribute('data-face', f.id);
+  btn.innerHTML = `<svg width="34" height="34" viewBox="0 0 100 100">${f.draw()}</svg><span>${f.label}</span>`;
+  btn.onclick = () => setFace(f.id, btn);
+  faceGrid.appendChild(btn);
+});
+
+// Tooltip
+const tooltip = document.getElementById('nameTooltip');
+function showTooltip(e, desc) {
+  if (!desc || !desc.trim()) return;
+  tooltip.textContent = desc;
+  positionTooltip(e);
+  tooltip.classList.add('show');
+}
+function positionTooltip(e) {
+  tooltip.style.left = (e.clientX + 14) + 'px';
+  tooltip.style.top = (e.clientY - 12) + 'px';
+}
+function hideTooltip() { tooltip.classList.remove('show'); }
+
+function getScale(size) { return size==='sm'?0.72:size==='lg'?1.38:1; }
+
+function makeFaceSVG(faceId) {
+  const face = FACES.find(f=>f.id===faceId) || FACES[0];
+  return face.draw();
+}
+
+// Returns a <path> with embedded SMIL <animate> for organic edge morphing
+function makePathSVG(shapeIdx, color) {
+  const paths = SHAPES_MORPH[shapeIdx];
+  const dur = MORPH_DURS[shapeIdx] + 's';
+  return `<path d="${paths[0]}" fill="${color}" opacity="0.92">
+    <animate attributeName="d" dur="${dur}" repeatCount="indefinite" calcMode="spline"
+      keyTimes="0;0.33;0.66;1"
+      keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"
+      values="${paths[0]};${paths[1]};${paths[2]};${paths[0]}"/>
+  </path>`;
+}
+
+function addBlob() {
+  document.getElementById('empty').style.display = 'none';
+  const canvas = document.getElementById('canvas');
+  const rect = canvas.getBoundingClientRect();
+  const id = Date.now().toString();
+  blobCount++;
+  const blob = {
+    id, name: randItem(NAMES), color: randItem(COLORS),
+    shape: randInt(0, SHAPES_MORPH.length-1), size: 'md', face: 'simple',
+    desc: '',
+    x: randInt(60, Math.max(100, rect.width - 220)),
+    y: randInt(20, Math.max(60, rect.height - 220)),
+  };
+  blobs.push(blob);
+  renderBlob(blob);
+  selectBlob(id);
+}
+
+function renderBlob(blob) {
+  const scale = getScale(blob.size);
+  const size = Math.round(100 * scale);
+  const div = document.createElement('div');
+  div.className = 'blob-wrapper';
+  div.id = 'blob-'+blob.id;
+  div.style.left = blob.x+'px';
+  div.style.top = blob.y+'px';
+  div.innerHTML = `
+    <svg class="blob-svg" width="${size}" height="${size}" viewBox="0 0 100 100">
+      ${makePathSVG(blob.shape, blob.color)}
+      ${makeFaceSVG(blob.face)}
+    </svg>
+    <div class="blob-name">${blob.name}</div>
+  `;
+
+  // Tooltip on name hover — reads desc from live blob object
+  const nameEl = div.querySelector('.blob-name');
+  nameEl.addEventListener('mouseenter', e => {
+    const b = blobs.find(b => b.id === blob.id);
+    if (b) showTooltip(e, b.desc);
+  });
+  nameEl.addEventListener('mouseleave', hideTooltip);
+  nameEl.addEventListener('mousemove', positionTooltip);
+
+  div.addEventListener('pointerdown', e => startDrag(e, blob.id));
+  div.addEventListener('click', (e) => { e.stopPropagation(); handleBlobClick(blob.id); });
+  document.getElementById('canvas').appendChild(div);
+}
+
+function refreshBlobEl(blob) {
+  const div = document.getElementById('blob-'+blob.id);
+  if (!div) return;
+  const scale = getScale(blob.size);
+  const size = Math.round(100 * scale);
+  const svg = div.querySelector('svg');
+  svg.setAttribute('width', size); svg.setAttribute('height', size);
+  svg.innerHTML = makePathSVG(blob.shape, blob.color) + makeFaceSVG(blob.face);
+  div.querySelector('.blob-name').textContent = blob.name;
+  renderConnections();
+}
+
+function selectBlob(id) {
+  selectedId = id;
+  document.querySelectorAll('.blob-wrapper').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById('blob-'+id);
+  if (el) el.classList.add('selected');
+  const blob = blobs.find(b=>b.id===id);
+  if (!blob) return;
+  const editor = document.getElementById('editor');
+  editor.style.display = 'block';
+  document.getElementById('nameInput').value = blob.name;
+  document.getElementById('descInput').value = blob.desc || '';
+  document.querySelectorAll('.color-dot').forEach(d => d.classList.toggle('active', d.getAttribute('data-color')===blob.color));
+  document.querySelectorAll('.size-btn').forEach(d => d.classList.toggle('active', d.textContent.toLowerCase()===blob.size));
+  document.querySelectorAll('.face-btn').forEach(d => d.classList.toggle('active', d.getAttribute('data-face')===blob.face));
+}
+
+function updateName(val) { const b=blobs.find(b=>b.id===selectedId); if(b){b.name=val; refreshBlobEl(b);} }
+function updateDesc(val) { const b=blobs.find(b=>b.id===selectedId); if(b) b.desc=val; }
+
+function setColor(c, el) {
+  const b=blobs.find(b=>b.id===selectedId); if(!b) return;
+  b.color=c; refreshBlobEl(b);
+  document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('active'));
+  el.classList.add('active');
+}
+function setSize(s, el) {
+  const b=blobs.find(b=>b.id===selectedId); if(!b) return;
+  b.size=s; refreshBlobEl(b);
+  document.querySelectorAll('.size-btn').forEach(d=>d.classList.remove('active'));
+  el.classList.add('active');
+}
+function setFace(f, el) {
+  const b=blobs.find(b=>b.id===selectedId); if(!b) return;
+  b.face=f; refreshBlobEl(b);
+  document.querySelectorAll('.face-btn').forEach(d=>d.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function startDrag(e, id) {
+  e.preventDefault();
+  const blob = blobs.find(b=>b.id===id);
+  dragState = { id, startX: e.clientX - blob.x, startY: e.clientY - blob.y };
+  window.addEventListener('pointermove', onDrag);
+  window.addEventListener('pointerup', stopDrag);
+}
+function onDrag(e) {
+  if (!dragState) return;
+  const blob = blobs.find(b=>b.id===dragState.id);
+  blob.x = e.clientX - dragState.startX;
+  blob.y = e.clientY - dragState.startY;
+  const el = document.getElementById('blob-'+blob.id);
+  el.style.left = blob.x+'px'; el.style.top = blob.y+'px';
+  renderConnections();
+}
+function stopDrag() {
+  dragState = null;
+  window.removeEventListener('pointermove', onDrag);
+  window.removeEventListener('pointerup', stopDrag);
+}
+
+function shareLink() {
+  const state = btoa(JSON.stringify(blobs));
+  window.location.hash = state;
+  navigator.clipboard.writeText(window.location.href).catch(()=>{});
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+// ---- CONNECTIONS ----
+let connections = [];
+let connectMode = false;
+let connectingFrom = null;
+let editingConnId = null;
+
+function getBlobCenter(blob) {
+  const size = Math.round(100 * getScale(blob.size));
+  return { x: blob.x + size / 2, y: blob.y + size / 2 };
+}
+
+function toggleConnectMode() {
+  connectMode = !connectMode;
+  connectingFrom = null;
+  hideLineEditor();
+  document.querySelectorAll('.blob-wrapper').forEach(el => el.classList.remove('connecting-source'));
+  document.getElementById('preview-line').setAttribute('opacity', '0');
+  document.getElementById('connectBtn').classList.toggle('active', connectMode);
+  document.getElementById('canvas').classList.toggle('connect-mode', connectMode);
+}
+
+function handleBlobClick(blobId) {
+  if (!connectMode) { selectBlob(blobId); return; }
+  hideLineEditor();
+
+  if (!connectingFrom) {
+    connectingFrom = blobId;
+    document.getElementById('blob-'+blobId).classList.add('connecting-source');
+  } else if (connectingFrom === blobId) {
+    document.getElementById('blob-'+connectingFrom).classList.remove('connecting-source');
+    connectingFrom = null;
+    document.getElementById('preview-line').setAttribute('opacity', '0');
+  } else {
+    const exists = connections.find(c =>
+      (c.from === connectingFrom && c.to === blobId) ||
+      (c.from === blobId && c.to === connectingFrom)
+    );
+    if (!exists) {
+      connections.push({ id: Date.now().toString(), from: connectingFrom, to: blobId, label: '' });
+    }
+    document.getElementById('blob-'+connectingFrom).classList.remove('connecting-source');
+    connectingFrom = null;
+    document.getElementById('preview-line').setAttribute('opacity', '0');
+    renderConnections();
+  }
+}
+
+function showLineEditor(connId, screenX, screenY) {
+  editingConnId = connId;
+  const conn = connections.find(c => c.id === connId);
+  const editor = document.getElementById('line-editor');
+  const input = document.getElementById('line-label-input');
+  input.value = conn ? conn.label : '';
+  editor.style.display = 'flex';
+  editor.style.left = (screenX - 95) + 'px';
+  editor.style.top  = (screenY - 44) + 'px';
+  input.focus();
+  input.select();
+}
+
+function hideLineEditor() {
+  saveLineLabel();
+  document.getElementById('line-editor').style.display = 'none';
+  editingConnId = null;
+}
+
+function saveLineLabel() {
+  if (!editingConnId) return;
+  const conn = connections.find(c => c.id === editingConnId);
+  if (conn) {
+    conn.label = document.getElementById('line-label-input').value.trim();
+    renderConnections();
+  }
+}
+
+function deleteSelectedConnection() {
+  if (!editingConnId) return;
+  connections = connections.filter(c => c.id !== editingConnId);
+  hideLineEditor();
+  renderConnections();
+}
+
+function renderConnections() {
+  const svg = document.getElementById('connections-svg');
+  svg.querySelectorAll('.conn-group').forEach(el => el.remove());
+  const preview = document.getElementById('preview-line');
+  const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+
+  connections.forEach(conn => {
+    const fromBlob = blobs.find(b => b.id === conn.from);
+    const toBlob = blobs.find(b => b.id === conn.to);
+    if (!fromBlob || !toBlob) return;
+    const from = getBlobCenter(fromBlob);
+    const to   = getBlobCenter(toBlob);
+    const mx = (from.x + to.x) / 2;
+    const my = (from.y + to.y) / 2;
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'conn-group');
+
+    // Dashed line
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', from.x); line.setAttribute('y1', from.y);
+    line.setAttribute('x2', to.x);   line.setAttribute('y2', to.y);
+    line.setAttribute('stroke', '#7C6AF7');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '7,5');
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('pointer-events', 'none');
+    g.appendChild(line);
+
+    // Label pill
+    if (conn.label) {
+      const padX = 10, padY = 5;
+      const charW = 6.5;
+      const pillW = Math.max(conn.label.length * charW + padX * 2, 40);
+      const pillH = 20;
+
+      const pill = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      pill.setAttribute('x', mx - pillW / 2);
+      pill.setAttribute('y', my - pillH / 2);
+      pill.setAttribute('width', pillW);
+      pill.setAttribute('height', pillH);
+      pill.setAttribute('rx', 10);
+      pill.setAttribute('fill', 'white');
+      pill.setAttribute('stroke', '#C4BAF0');
+      pill.setAttribute('stroke-width', '1');
+      pill.setAttribute('pointer-events', 'none');
+      g.appendChild(pill);
+
+      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      txt.setAttribute('x', mx);
+      txt.setAttribute('y', my + 4);
+      txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('font-family', 'Inter, sans-serif');
+      txt.setAttribute('font-size', '11');
+      txt.setAttribute('fill', '#555');
+      txt.setAttribute('pointer-events', 'none');
+      txt.textContent = conn.label;
+      g.appendChild(txt);
+    }
+
+    // Wide hit zone — click to open label editor
+    const hit = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    hit.setAttribute('x1', from.x); hit.setAttribute('y1', from.y);
+    hit.setAttribute('x2', to.x);   hit.setAttribute('y2', to.y);
+    hit.setAttribute('stroke', 'transparent');
+    hit.setAttribute('stroke-width', '20');
+    hit.setAttribute('pointer-events', 'stroke');
+    hit.style.cursor = 'pointer';
+    hit.addEventListener('click', e => {
+      e.stopPropagation();
+      showLineEditor(conn.id, canvasRect.left + mx, canvasRect.top + my);
+    });
+    hit.addEventListener('mouseenter', () => line.setAttribute('stroke', '#A694F5'));
+    hit.addEventListener('mouseleave', () => line.setAttribute('stroke', '#7C6AF7'));
+    g.appendChild(hit);
+
+    svg.insertBefore(g, preview);
+  });
+}
+
+// Save label on Enter, close on Escape
+document.getElementById('line-label-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === 'Escape') hideLineEditor();
+});
+// Save on blur (clicking away)
+document.getElementById('line-label-input').addEventListener('blur', () => {
+  setTimeout(hideLineEditor, 100); // small delay so delete btn click can fire first
+});
+
+// Preview line follows cursor while connecting
+document.getElementById('canvas').addEventListener('mousemove', e => {
+  if (!connectMode || !connectingFrom) return;
+  const blob = blobs.find(b => b.id === connectingFrom);
+  if (!blob) return;
+  const center = getBlobCenter(blob);
+  const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+  const preview = document.getElementById('preview-line');
+  preview.setAttribute('x1', center.x);
+  preview.setAttribute('y1', center.y);
+  preview.setAttribute('x2', e.clientX - canvasRect.left);
+  preview.setAttribute('y2', e.clientY - canvasRect.top);
+  preview.setAttribute('opacity', '0.5');
+});
+
+document.getElementById('canvas').addEventListener('click', e => {
+  hideLineEditor();
+  if (e.target.id==='canvas' || (e.target.tagName==='DIV' && e.target.id==='canvas')) {
+    if (connectMode) {
+      if (connectingFrom) {
+        document.getElementById('blob-'+connectingFrom).classList.remove('connecting-source');
+        connectingFrom = null;
+        document.getElementById('preview-line').setAttribute('opacity', '0');
+      }
+      return;
+    }
+    selectedId=null;
+    document.querySelectorAll('.blob-wrapper').forEach(el=>el.classList.remove('selected'));
+    document.getElementById('editor').style.display='none';
+  }
+});
+
+setTimeout(addBlob, 200);
+</script>
+</body>
+</html>
