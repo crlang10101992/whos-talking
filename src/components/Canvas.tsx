@@ -1,10 +1,11 @@
-import { useRef, useState, RefObject } from 'react'
+import { useState } from 'react'
+import type { RefObject } from 'react'
 import type { Blob, Connection } from '../types'
 import BlobWrapper from './BlobWrapper'
 import ConnectionsSvg from './ConnectionsSvg'
 
 interface Props {
-  canvasRef: RefObject<HTMLDivElement>
+  canvasRef: RefObject<HTMLDivElement | null>
   blobs: Blob[]
   connections: Connection[]
   selectedId: string | null

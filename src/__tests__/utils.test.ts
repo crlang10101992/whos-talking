@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { randInt, randItem, getBlobCenter, serialize, deserialize } from '../utils'
+import { randInt, getBlobCenter, serialize, deserialize } from '../utils'
 import type { Blob, Connection } from '../types'
 
 const makeBlob = (overrides: Partial<Blob> = {}): Blob => ({
