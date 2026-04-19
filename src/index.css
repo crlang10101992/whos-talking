@@ -97,10 +97,7 @@ body {
   outline: none; -webkit-tap-highlight-color: transparent;
 }
 .blob-wrapper:active { cursor: grabbing; }
-.blob-svg {
-  display: block;
-  overflow: visible;
-}
+.blob-svg { display: block; }
 .blob-wrapper.selected .blob-svg {
   filter: drop-shadow(0 0 10px rgba(124,106,247,0.5));
 }
