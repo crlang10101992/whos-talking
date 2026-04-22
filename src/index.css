@@ -81,9 +81,10 @@ body {
 .btn-primary:hover { background: #6857e0; }
 .btn-ghost { background: transparent; color: #555; border: 1px solid #DDD; }
 .btn-ghost:hover { background: #F0EDE8; }
-.btn-connect { background: #EF4444; color: white; border: 1px solid #EF4444; }
-.btn-connect:hover { background: #DC2626; border-color: #DC2626; }
-.btn-connect.active { background: #DC2626; color: white; border-color: #DC2626; }
+.btn-connect { background: transparent; color: #555; border: 1px solid #DDD; }
+.btn-connect:hover { background: #F0EDE8; }
+.btn-connect.active { background: #EF4444; color: white; border-color: #EF4444; }
+.btn-connect.active:hover { background: #DC2626; border-color: #DC2626; }
 
 /* ---- Connection mode overlay ---- */
 .connect-mode-border {

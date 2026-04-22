@@ -30,7 +30,7 @@ export default function Toolbar({ connectMode, onToggleConnect, onAddBlob, onSha
             className={`btn btn-connect${connectMode ? ' active' : ''}`}
             onClick={onToggleConnect}
           >
-            {connectMode ? 'Stop Connect' : 'Connect'}
+            {connectMode ? 'Stop Connect' : 'Make Connections'}
           </button>
           <button className="btn btn-primary" onClick={onAddBlob}>+ New part</button>
         </div>
@@ -61,7 +61,7 @@ export default function Toolbar({ connectMode, onToggleConnect, onAddBlob, onSha
             className={`mobile-menu-item${connectMode ? ' active' : ''}`}
             onClick={() => handleAction(onToggleConnect)}
           >
-            {connectMode ? 'Stop Connect' : 'Connect'}
+            {connectMode ? 'Stop Connect' : 'Make Connections'}
           </button>
           <button className="mobile-menu-item" onClick={() => handleAction(onShare)}>Copy Link to Save</button>
         </div>
