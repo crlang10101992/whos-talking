@@ -20,6 +20,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState('')
   const canvasRef = useRef<HTMLDivElement>(null)
   const hasUnsavedRef = useRef(false)
+  const loadedFromSavedLinkRef = useRef(false)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Restore from URL hash on mount
@@ -29,11 +30,12 @@ export default function App() {
       const state = deserialize(hash)
       setBlobs(state.blobs)
       setConnections(state.connections)
+      loadedFromSavedLinkRef.current = true
     }
   }, [])
 
   const showSaveReminder = useCallback(() => {
-    if (!hasUnsavedRef.current) return
+    if (!hasUnsavedRef.current || !loadedFromSavedLinkRef.current) return
     setToastMessage("Don't forget to copy your link to save these changes.")
     setShowToast(true)
     setTimeout(() => setShowToast(false), 4000)
@@ -75,6 +77,13 @@ export default function App() {
 
   const moveBlob = useCallback((id: string, x: number, y: number) => {
     setBlobs(prev => prev.map(b => b.id === id ? { ...b, x, y } : b))
+    markUnsaved()
+  }, [markUnsaved])
+
+  const deleteBlob = useCallback((id: string) => {
+    setBlobs(prev => prev.filter(b => b.id !== id))
+    setConnections(prev => prev.filter(c => c.from !== id && c.to !== id))
+    setSelectedId(null)
     markUnsaved()
   }, [markUnsaved])
 
@@ -191,6 +200,7 @@ export default function App() {
         <EditorPanel
           blob={selectedBlob}
           onChange={(changes) => updateBlob(selectedBlob.id, changes)}
+          onDelete={() => deleteBlob(selectedBlob.id)}
         />
       )}
       {editingConn && (

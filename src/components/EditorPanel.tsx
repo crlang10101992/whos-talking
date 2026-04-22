@@ -5,12 +5,13 @@ import type { Blob } from '../types'
 interface Props {
   blob: Blob
   onChange: (changes: Partial<Blob>) => void
+  onDelete: () => void
 }
 
 const SIZES: Array<'sm' | 'md' | 'lg'> = ['sm', 'md', 'lg']
 const SIZE_LABELS: Record<string, string> = { sm: 'Small', md: 'Medium', lg: 'Large' }
 
-export default function EditorPanel({ blob, onChange }: Props) {
+export default function EditorPanel({ blob, onChange, onDelete }: Props) {
   function handleNameBlur(e: React.FocusEvent<HTMLInputElement>) {
     const val = e.target.value.trim()
     if (val) onChange({ name: val })
@@ -90,6 +91,12 @@ export default function EditorPanel({ blob, onChange }: Props) {
           key={blob.id}
           onChange={e => onChange({ desc: e.target.value })}
         />
+      </div>
+
+      <hr />
+
+      <div className="editor-section">
+        <button className="delete-part-btn" onClick={onDelete}>Remove Part</button>
       </div>
     </div>
   )

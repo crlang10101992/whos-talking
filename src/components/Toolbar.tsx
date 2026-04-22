@@ -18,7 +18,10 @@ export default function Toolbar({ connectMode, onToggleConnect, onAddBlob, onSha
   return (
     <>
       <div className="toolbar">
-        <div className="app-name">Who's <span>Talking?</span></div>
+        <div className="app-name-group">
+          <div className="app-name">Who's <span>Talking?</span></div>
+          <div className="app-tagline">Map your different parts to better understand yourself and your behaviors</div>
+        </div>
 
         {/* Desktop buttons */}
         <div className="toolbar-actions toolbar-desktop">
@@ -27,7 +30,7 @@ export default function Toolbar({ connectMode, onToggleConnect, onAddBlob, onSha
             className={`btn btn-connect${connectMode ? ' active' : ''}`}
             onClick={onToggleConnect}
           >
-            Connect
+            {connectMode ? 'Stop Connect' : 'Connect'}
           </button>
           <button className="btn btn-primary" onClick={onAddBlob}>+ New part</button>
         </div>
@@ -42,6 +45,14 @@ export default function Toolbar({ connectMode, onToggleConnect, onAddBlob, onSha
         </button>
       </div>
 
+      {/* Connection mode visual overlay */}
+      {connectMode && (
+        <>
+          <div className="connect-mode-border" />
+          <div className="connect-mode-banner">Connection Mode: Making Connections</div>
+        </>
+      )}
+
       {/* Mobile dropdown */}
       {menuOpen && (
         <div className="mobile-menu">
@@ -50,7 +61,7 @@ export default function Toolbar({ connectMode, onToggleConnect, onAddBlob, onSha
             className={`mobile-menu-item${connectMode ? ' active' : ''}`}
             onClick={() => handleAction(onToggleConnect)}
           >
-            {connectMode ? 'Connect (on)' : 'Connect'}
+            {connectMode ? 'Stop Connect' : 'Connect'}
           </button>
           <button className="mobile-menu-item" onClick={() => handleAction(onShare)}>Copy Link to Save</button>
         </div>
