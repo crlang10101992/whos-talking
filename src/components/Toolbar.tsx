@@ -22,7 +22,7 @@ export default function Toolbar({ connectMode, onToggleConnect, onAddBlob, onSha
 
         {/* Desktop buttons */}
         <div className="toolbar-actions toolbar-desktop">
-          <button className="btn btn-ghost" onClick={onShare}>Share link</button>
+          <button className="btn btn-ghost" onClick={onShare} title="Copy this link to return to your parts mapping. Re-copy after making edits to save changes.">Copy Link to Save</button>
           <button
             className={`btn btn-connect${connectMode ? ' active' : ''}`}
             onClick={onToggleConnect}
@@ -52,7 +52,7 @@ export default function Toolbar({ connectMode, onToggleConnect, onAddBlob, onSha
           >
             {connectMode ? 'Connect (on)' : 'Connect'}
           </button>
-          <button className="mobile-menu-item" onClick={() => handleAction(onShare)}>Share link</button>
+          <button className="mobile-menu-item" onClick={() => handleAction(onShare)}>Copy Link to Save</button>
         </div>
       )}
 

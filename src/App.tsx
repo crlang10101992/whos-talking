@@ -17,7 +17,10 @@ export default function App() {
   const [editingConnId, setEditingConnId] = useState<string | null>(null)
   const [lineEditorPos, setLineEditorPos] = useState({ x: 0, y: 0 })
   const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
   const canvasRef = useRef<HTMLDivElement>(null)
+  const hasUnsavedRef = useRef(false)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Restore from URL hash on mount
   useEffect(() => {
@@ -29,6 +32,19 @@ export default function App() {
     }
   }, [])
 
+  const showSaveReminder = useCallback(() => {
+    if (!hasUnsavedRef.current) return
+    setToastMessage("Don't forget to copy your link to save these changes.")
+    setShowToast(true)
+    setTimeout(() => setShowToast(false), 4000)
+  }, [])
+
+  const markUnsaved = useCallback(() => {
+    hasUnsavedRef.current = true
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+    idleTimerRef.current = setTimeout(showSaveReminder, 30000)
+  }, [showSaveReminder])
+
   // ---- Blob handlers ----
 
   const addBlob = useCallback(() => {
@@ -39,7 +55,8 @@ export default function App() {
     setBlobs(prev => [...prev, blob])
     setSelectedId(blob.id)
     setConnectMode(false)
-  }, [])
+    markUnsaved()
+  }, [markUnsaved])
 
   const selectBlob = useCallback((id: string) => {
     setSelectedId(id)
@@ -53,11 +70,13 @@ export default function App() {
 
   const updateBlob = useCallback((id: string, changes: Partial<Blob>) => {
     setBlobs(prev => prev.map(b => b.id === id ? { ...b, ...changes } : b))
-  }, [])
+    markUnsaved()
+  }, [markUnsaved])
 
   const moveBlob = useCallback((id: string, x: number, y: number) => {
     setBlobs(prev => prev.map(b => b.id === id ? { ...b, x, y } : b))
-  }, [])
+    markUnsaved()
+  }, [markUnsaved])
 
   const deselectAll = useCallback(() => {
     setSelectedId(null)
@@ -95,6 +114,7 @@ export default function App() {
           label: '',
         }
         setConnections(prev => [...prev, conn])
+        markUnsaved()
       }
       setConnectingFrom(null)
     }
@@ -117,12 +137,14 @@ export default function App() {
       prev.map(c => c.id === editingConnId ? { ...c, label } : c)
     )
     setEditingConnId(null)
-  }, [editingConnId])
+    markUnsaved()
+  }, [editingConnId, markUnsaved])
 
   const deleteConnection = useCallback((id: string) => {
     setConnections(prev => prev.filter(c => c.id !== id))
     setEditingConnId(null)
-  }, [])
+    markUnsaved()
+  }, [markUnsaved])
 
   const closeLineEditor = useCallback(() => {
     setEditingConnId(null)
@@ -134,6 +156,9 @@ export default function App() {
     const hash = serialize({ blobs, connections })
     window.location.hash = hash
     navigator.clipboard.writeText(window.location.href).catch(() => {})
+    hasUnsavedRef.current = false
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+    setToastMessage('Link copied — paste it to return to this mapping')
     setShowToast(true)
     setTimeout(() => setShowToast(false), 2500)
   }, [blobs, connections])
@@ -177,7 +202,7 @@ export default function App() {
           onClose={closeLineEditor}
         />
       )}
-      <Toast show={showToast} />
+      <Toast show={showToast} message={toastMessage} />
     </>
   )
 }
